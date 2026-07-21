@@ -1,3 +1,4 @@
 {
-  "abBaseUrl": "./AssetBundles"
+  "abBaseUrl": "https://metaverse.metafair.passdao.org/AssetBundles",
+  "environment": "preprod"
 }
