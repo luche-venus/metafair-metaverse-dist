@@ -3,45 +3,14 @@
   <head>
     <meta charset="utf-8">
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
-    <title>Unity WebGL Player | jj_demo</title>
+    <title>METAFAIR</title>
   
     <!-- MICROPHONE PRO START -->
     <script src='./microphone.js'></script>
     <!-- MICROPHONE PRO END -->
-    <!-- Host bridge: ensure parent SPA always receives UnityEvent (SetScore / Navigate) -->
-    <script>
-      (function () {
-        // Mirror native jslib posts + expose manual test hooks for local debug.
-        function postToParent(eventName, data) {
-          var msg = { type: 'UnityEvent', eventName: eventName, data: data };
-          try {
-            if (window.parent && window.parent !== window) {
-              window.parent.postMessage(msg, '*');
-            }
-          } catch (e) {
-            console.warn('[unity-host-bridge] postMessage failed', e);
-          }
-          if (typeof window.dispatchReactUnityEvent === 'function') {
-            try { window.dispatchReactUnityEvent(eventName, data); } catch (_) {}
-          }
-          console.info('[unity-host-bridge]', eventName, data);
-        }
-        // Used by local QA: parent or console can call these
-        window.__unityBridge = {
-          setScore: function (id) { postToParent('SetScore', Number(id)); },
-          navigate: function (path) { postToParent('Navigate', String(path || '')); },
-        };
-        // If jslib SetScore is missing in an old build, patch after load
-        window.addEventListener('load', function () {
-          if (typeof window.SetScore !== 'function') {
-            window.SetScore = function (score) { postToParent('SetScore', score); };
-          }
-        });
-      })();
-    </script>
 </head>
   <body style="text-align: center; padding: 0; border: 0; margin: 0;">
-    <canvas id="unity-canvas" width=1280 height=720 tabindex="-1" style="width: 100vw; height: 100vh; background: #FAFAFA"></canvas>
+    <canvas id="unity-canvas" width=1280 height=720 tabindex="-1" style="width: 1280px; height: 720px; background: #FAFAFA"></canvas>
     <script src="Build/Dist.loader.js"></script>
     <script>
       if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
