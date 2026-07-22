@@ -10,10 +10,151 @@
     <script src='./microphone.js'></script>
     <!-- MICROPHONE PRO END -->
 
-    <!-- Host bridge: parent SPA receives UnityEvent (SetScore / Navigate) -->
+    <!--
+      Host bridge + optional in-WebGL debug HUD (Dist JS only — no Unity C# rebuild).
+
+      Enable HUD (any of):
+        ?unityDebug=1 | ?touchDebug=1 | ?metaverseDebug=1
+        localStorage metafair_unity_debug=1
+        config.json { "debug": true }
+
+      Preprod:
+        https://metaverse.metafair.passdao.org/?unityDebug=1
+        https://metafair.passdao.org/metafair-art?unityDebug=1  (reads parent query when same-site readable)
+    -->
     <script>
       (function () {
+        var params = new URLSearchParams(location.search || '');
+        var parentParams = null;
+        try {
+          if (window.parent && window.parent !== window) {
+            parentParams = new URLSearchParams(window.parent.location.search || '');
+          }
+        } catch (_) {
+          parentParams = null;
+        }
+        function flag(name) {
+          var v = params.get(name);
+          if (v === '1' || v === 'true') return true;
+          if (parentParams) {
+            v = parentParams.get(name);
+            if (v === '1' || v === 'true') return true;
+          }
+          return false;
+        }
+        var debug =
+          flag('unityDebug') ||
+          flag('touchDebug') ||
+          flag('unityTouchDebug') ||
+          flag('metaverseDebug') ||
+          (function () {
+            try {
+              return (
+                localStorage.getItem('metafair_unity_debug') === '1' ||
+                localStorage.getItem('metafair_unity_touch_debug') === '1'
+              );
+            } catch (e) {
+              return false;
+            }
+          })();
+
+        // Keep in sync with frontend DEFAULT_UNITY_ARTWORK_ID_MAP (mesh-truth).
+        var GO_TO_PORTAL = {
+          8: 2, 9: 3, 10: 4, 11: 5, 12: 6, 13: 7, 14: 8, 15: 9, 16: 10, 17: 11,
+          24: 28, 25: 29, 26: 30, 27: 31, 42: 12,
+          28: 18,
+          29: 13, 30: 14, 31: 15, 32: 16, 33: 17,
+          37: 24, 38: 25, 39: 26, 41: 27,
+        };
+        var GO_HALL = {
+          1: 'Phoenix', 2: 'Phoenix', 3: 'Phoenix', 4: 'Phoenix', 5: 'Phoenix', 6: 'Phoenix', 7: 'Phoenix',
+          8: 'Berko', 9: 'Berko', 10: 'Berko', 11: 'Berko', 12: 'Berko', 13: 'Berko', 14: 'Berko',
+          15: 'Berko', 16: 'Berko', 17: 'Berko', 18: 'Berko',
+          19: 'Dulon', 20: 'Dulon', 21: 'Dulon', 22: 'Dulon', 23: 'Dulon',
+          24: 'Mermoz', 25: 'Mermoz', 26: 'Mermoz', 27: 'Mermoz', 42: 'Mermoz',
+          28: 'Gisele',
+          29: 'Bernard', 30: 'Bernard', 31: 'Bernard', 32: 'Bernard', 33: 'Bernard',
+          34: 'IanaK', 35: 'IanaK', 36: 'IanaK', 43: 'IanaK', 44: 'IanaK', 45: 'IanaK',
+          37: 'Leage', 38: 'Leage', 39: 'Leage', 41: 'Leage',
+        };
+
+        window.__unityTouchDebug = debug;
+        window.__unityDebug = debug;
+        window.__unityDebugState = {
+          gallery: null,
+          lastSetScore: null,
+          lastPortal: null,
+          lastHall: null,
+          lastAt: null,
+          seq: 0,
+          log: [],
+        };
+
+        function recordUnityEvent(eventName, data, fromJslib) {
+          var st = window.__unityDebugState;
+          var now = new Date().toISOString();
+          if (eventName === 'CurrentGallery') {
+            st.gallery = String(data == null ? '' : data);
+          } else if (eventName === 'GalleryTime') {
+            st.galleryTime = String(data == null ? '' : data);
+          } else if (eventName === 'SetScore') {
+            var uid = Number(data);
+            var portal = GO_TO_PORTAL[uid] != null ? GO_TO_PORTAL[uid] : uid;
+            var hall = GO_HALL[uid] || '?';
+            st.seq += 1;
+            st.lastSetScore = uid;
+            st.lastPortal = portal;
+            st.lastHall = hall;
+            st.lastAt = now;
+            st.log.unshift({
+              seq: st.seq,
+              unityId: uid,
+              portalId: portal,
+              hall: hall,
+              gallery: st.gallery,
+              at: now,
+              via: fromJslib ? 'jslib' : 'bridge',
+            });
+            if (st.log.length > 12) st.log.length = 12;
+          }
+          try {
+            if (window.parent && window.parent !== window) {
+              window.parent.postMessage(
+                {
+                  type: 'UnityDebugProbe',
+                  eventName: eventName,
+                  data: data,
+                  state: {
+                    gallery: st.gallery,
+                    lastSetScore: st.lastSetScore,
+                    lastPortal: st.lastPortal,
+                    lastHall: st.lastHall,
+                    lastAt: st.lastAt,
+                    seq: st.seq,
+                  },
+                },
+                '*',
+              );
+            }
+          } catch (_) {}
+          if (debug) console.info('[unity-debug]', eventName, data, st);
+          if (window.__unityDebugRender) window.__unityDebugRender();
+        }
+
+        // Avoid double-count when jslib posts + calls dispatchReactUnityEvent.
+        var lastKey = '';
+        var lastKeyAt = 0;
+        function recordDeduped(eventName, data, via) {
+          var key = eventName + ':' + String(data);
+          var now = Date.now();
+          if (key === lastKey && now - lastKeyAt < 40) return;
+          lastKey = key;
+          lastKeyAt = now;
+          recordUnityEvent(eventName, data, via);
+        }
+
         function postToParent(eventName, data) {
+          recordDeduped(eventName, data, false);
           var msg = { type: 'UnityEvent', eventName: eventName, data: data };
           try {
             if (window.parent && window.parent !== window) {
@@ -22,82 +163,153 @@
           } catch (e) {
             console.warn('[unity-host-bridge] postMessage failed', e);
           }
-          if (typeof window.dispatchReactUnityEvent === 'function') {
-            try { window.dispatchReactUnityEvent(eventName, data); } catch (_) {}
-          }
           console.info('[unity-host-bridge]', eventName, data);
         }
+
+        // jslib calls this when present — primary capture path for SetScore.
+        window.dispatchReactUnityEvent = function (eventName, data) {
+          recordDeduped(eventName, data, true);
+        };
+
         window.__unityBridge = {
-          setScore: function (id) { postToParent('SetScore', Number(id)); },
-          navigate: function (path) { postToParent('Navigate', String(path || '')); },
+          setScore: function (id) {
+            postToParent('SetScore', Number(id));
+          },
+          navigate: function (path) {
+            postToParent('Navigate', String(path || ''));
+          },
         };
         if (typeof window.SetScore !== 'function') {
-          window.SetScore = function (score) { postToParent('SetScore', score); };
+          window.SetScore = function (score) {
+            postToParent('SetScore', score);
+          };
         }
         if (typeof window.Navigate !== 'function') {
-          window.Navigate = function (path) { postToParent('Navigate', path); };
+          window.Navigate = function (path) {
+            postToParent('Navigate', path);
+          };
         }
-      })();
-    </script>
 
-    <!--
-      Touch diagnostics (always light). Enable verbose HUD via:
-        - this page: ?touchDebug=1
-        - parent SPA: ?unityTouchDebug=1  (listens for UnityTouchProbe postMessage)
-      Binary isolation:
-        A) open this Dist URL alone on the phone
-        B) open host /metafair-art embedding this URL
-      If A works and B fails → host overlay/scroll. If both fail → Unity input/scale.
-    -->
-    <script>
-      (function () {
-        var params = new URLSearchParams(location.search || '');
-        var debug =
-          params.get('touchDebug') === '1' ||
-          params.get('unityTouchDebug') === '1' ||
-          (function () {
-            try { return localStorage.getItem('metafair_unity_touch_debug') === '1'; } catch (e) { return false; }
-          })();
-
-        window.__unityTouchDebug = debug;
         window.__unityTouchProbe = {
           counts: { touchstart: 0, touchend: 0, pointerdown: 0, pointerup: 0, mousedown: 0, click: 0 },
           last: null,
           canvas: null,
         };
-
-        function report(type, e) {
+        function reportTouch(type, e) {
           var t = (e.touches && e.touches[0]) || (e.changedTouches && e.changedTouches[0]) || e;
           var payload = {
             type: type,
             x: typeof t.clientX === 'number' ? t.clientX : null,
             y: typeof t.clientY === 'number' ? t.clientY : null,
             pointerType: e.pointerType || null,
-            target: e.target && (e.target.id || e.target.tagName),
-            dpr: window.devicePixelRatio || 1,
-            cw: window.__unityTouchProbe.canvas && window.__unityTouchProbe.canvas.clientWidth,
-            ch: window.__unityTouchProbe.canvas && window.__unityTouchProbe.canvas.clientHeight,
-            bw: window.__unityTouchProbe.canvas && window.__unityTouchProbe.canvas.width,
-            bh: window.__unityTouchProbe.canvas && window.__unityTouchProbe.canvas.height,
-            embedded: !!(window.parent && window.parent !== window),
-            uaMobile: /iPhone|iPad|iPod|Android/i.test(navigator.userAgent),
           };
           window.__unityTouchProbe.counts[type] = (window.__unityTouchProbe.counts[type] || 0) + 1;
           window.__unityTouchProbe.last = payload;
-          try {
-            if (window.parent && window.parent !== window) {
-              window.parent.postMessage({ type: 'UnityTouchProbe', payload: payload, counts: window.__unityTouchProbe.counts }, '*');
-            }
-          } catch (_) {}
-          if (debug) console.info('[unity-touch-probe]', payload);
         }
-
         window.__installUnityTouchProbe = function (canvas) {
           window.__unityTouchProbe.canvas = canvas;
           ['touchstart', 'touchend', 'pointerdown', 'pointerup', 'mousedown', 'click'].forEach(function (type) {
-            canvas.addEventListener(type, function (e) { report(type, e); }, true);
+            canvas.addEventListener(
+              type,
+              function (e) {
+                reportTouch(type, e);
+              },
+              true,
+            );
           });
         };
+
+        function mountHud() {
+          if (document.getElementById('unity-score-debug-hud')) return;
+          var hud = document.createElement('div');
+          hud.id = 'unity-score-debug-hud';
+          hud.setAttribute(
+            'style',
+            [
+              'position:absolute',
+              'left:8px',
+              'top:8px',
+              'z-index:50',
+              'max-width:min(96vw,22rem)',
+              'padding:8px 10px',
+              'border-radius:8px',
+              'background:rgba(0,0,0,0.82)',
+              'color:#f5f5f5',
+              'font:11px/1.35 ui-monospace,SFMono-Regular,Menlo,monospace',
+              'pointer-events:none',
+              'white-space:pre-wrap',
+              'box-shadow:0 8px 24px rgba(0,0,0,.35)',
+            ].join(';'),
+          );
+          document.body.appendChild(hud);
+          window.__unityDebugRender = function () {
+            var st = window.__unityDebugState;
+            var lines = [
+              'WebGL debug (Dist JS)',
+              'gallery: ' + (st.gallery || '(none yet)'),
+              'last SetScore U' +
+                st.lastSetScore +
+                ' → expect P' +
+                st.lastPortal +
+                ' [' +
+                (st.lastHall || '?') +
+                ']',
+              'at: ' + (st.lastAt || '—') + '  seq:' + st.seq,
+            ];
+            if (
+              st.gallery &&
+              st.lastHall &&
+              String(st.gallery).toLowerCase().indexOf('mermoz') >= 0 &&
+              st.lastHall !== 'Mermoz'
+            ) {
+              lines.push('WARN: gallery=Mermoz but GO hall=' + st.lastHall);
+              lines.push('  → raycast hit other hall, or wrong collider name');
+            }
+            if (st.lastSetScore === 25) lines.push('Tlaloc: U25→P29 /marketplace/29');
+            if (st.lastSetScore === 29) lines.push('Bernard Pyxis: U29→P13 /marketplace/13');
+            if (st.log.length) {
+              lines.push('— recent SetScore —');
+              st.log.slice(0, 6).forEach(function (e) {
+                lines.push(
+                  '#' +
+                    e.seq +
+                    ' U' +
+                    e.unityId +
+                    '→P' +
+                    e.portalId +
+                    ' ' +
+                    e.hall +
+                    (e.gallery ? ' @' + e.gallery : ''),
+                );
+              });
+            } else {
+              lines.push('(click a TheArt piece)');
+            }
+            hud.textContent = lines.join('\n');
+          };
+          window.__unityDebugRender();
+        }
+
+        if (debug) {
+          if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', mountHud);
+          } else {
+            mountHud();
+          }
+        }
+
+        fetch('config.json', { cache: 'no-store' })
+          .then(function (r) {
+            return r.ok ? r.json() : null;
+          })
+          .then(function (cfg) {
+            if (cfg && cfg.debug === true) {
+              window.__unityDebug = true;
+              window.__unityTouchDebug = true;
+              mountHud();
+            }
+          })
+          .catch(function () {});
       })();
     </script>
 
@@ -110,7 +322,6 @@
         width: 100%;
         height: 100%;
         overflow: hidden;
-        /* Browser must not steal pan/zoom; Unity UI needs raw taps */
         touch-action: none;
         overscroll-behavior: none;
         -webkit-user-select: none;
@@ -120,9 +331,6 @@
       #unity-canvas {
         background: #FAFAFA;
         display: block;
-        /* Absolute fill of the iframe/document — NOT position:fixed.
-           Fixed + mobile UA was a desktop-vs-mobile layout fork that breaks
-           Unity's screen/UI coordinate mapping inside cross-origin iframes. */
         position: absolute;
         left: 0;
         top: 0;
@@ -174,20 +382,6 @@
         text-transform: uppercase;
         color: rgba(60, 60, 60, 0.5);
       }
-      #unity-touch-debug-hud {
-        position: absolute;
-        left: 8px;
-        top: 8px;
-        z-index: 20;
-        max-width: 92%;
-        padding: 8px 10px;
-        border-radius: 8px;
-        background: rgba(0,0,0,0.72);
-        color: #f5f5f5;
-        font: 11px/1.35 ui-monospace, SFMono-Regular, Menlo, monospace;
-        pointer-events: none;
-        white-space: pre-wrap;
-      }
     </style>
   </head>
   <body>
@@ -203,24 +397,23 @@
       (function () {
         var canvas = document.querySelector('#unity-canvas');
         var isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-        var embedded = !!(window.parent && window.parent !== window);
 
         if (typeof window.__installUnityTouchProbe === 'function') {
           window.__installUnityTouchProbe(canvas);
         }
 
-        // Keep canvas focused so InputSystem/EventSystem see subsequent gestures.
         var focusCanvas = function () {
-          try { canvas.focus({ preventScroll: true }); } catch (e) {
-            try { canvas.focus(); } catch (_) {}
+          try {
+            canvas.focus({ preventScroll: true });
+          } catch (e) {
+            try {
+              canvas.focus();
+            } catch (_) {}
           }
         };
         canvas.addEventListener('touchstart', focusCanvas, { passive: true, capture: true });
         canvas.addEventListener('pointerdown', focusCanvas, { passive: true, capture: true });
 
-        // Only cancel touch *move* (pan/scroll). Do NOT preventDefault on touchstart/touchend:
-        // browsers suppress compatibility mousedown/click when touchstart is canceled, and Unity
-        // StandaloneInputModule / mixed Input System often depends on those for UI clicks.
         canvas.addEventListener(
           'touchmove',
           function (e) {
@@ -229,25 +422,23 @@
           { passive: false, capture: true },
         );
 
-        // Chrome DevTools Sensors "Touch: force enabled" turns clicks into touch-only
-        // (often no compatibility mousedown). Unity uGUI with Input Manager / Both mode
-        // still needs mouse events — synthesize them from single-finger touch.
         (function bridgeTouchToMouse(el) {
           var tracking = false;
           function fire(type, touch, buttons) {
-            var evt = new MouseEvent(type, {
-              bubbles: true,
-              cancelable: true,
-              view: window,
-              clientX: touch.clientX,
-              clientY: touch.clientY,
-              screenX: touch.screenX,
-              screenY: touch.screenY,
-              button: 0,
-              buttons: buttons,
-              detail: type === 'click' ? 1 : 0,
-            });
-            el.dispatchEvent(evt);
+            el.dispatchEvent(
+              new MouseEvent(type, {
+                bubbles: true,
+                cancelable: true,
+                view: window,
+                clientX: touch.clientX,
+                clientY: touch.clientY,
+                screenX: touch.screenX,
+                screenY: touch.screenY,
+                button: 0,
+                buttons: buttons,
+                detail: type === 'click' ? 1 : 0,
+              }),
+            );
           }
           el.addEventListener(
             'touchstart',
@@ -299,8 +490,6 @@
           focusCanvas();
         };
 
-        // High-DPI mobile: default matchWebGLToCanvasSize * devicePixelRatio often desyncs
-        // Screen/UI raycasts (display OK, taps miss buttons). Force DPR=1 on touch devices.
         var config = {
           dataUrl: 'Build/Dist.data.unityweb',
           frameworkUrl: 'Build/Dist.framework.js.unityweb',
@@ -315,40 +504,16 @@
           config.devicePixelRatio = 1;
         }
 
-        if (window.__unityTouchDebug) {
-          var hud = document.createElement('div');
-          hud.id = 'unity-touch-debug-hud';
-          hud.textContent = 'touchDebug on\nembedded=' + embedded + ' mobile=' + isMobile + '\ndpr(cfg)=' + (config.devicePixelRatio || 'auto');
-          document.body.appendChild(hud);
-          window.addEventListener('message', function () {});
-          setInterval(function () {
-            var p = window.__unityTouchProbe;
-            if (!p || !hud) return;
-            var last = p.last;
-            hud.textContent =
-              'touchDebug (Dist)\n' +
-              'embedded=' + embedded + ' mobileUA=' + isMobile + '\n' +
-              'css=' + canvas.clientWidth + 'x' + canvas.clientHeight +
-              ' buf=' + canvas.width + 'x' + canvas.height +
-              ' dpr=' + (window.devicePixelRatio || 1) + '\n' +
-              'counts ' + JSON.stringify(p.counts) + '\n' +
-              (last ? ('last ' + last.type + ' @' + last.x + ',' + last.y + ' ' + (last.pointerType || '')) : 'last: (tap canvas)');
-          }, 200);
-        }
-
         createUnityInstance(canvas, config)
           .then(function (instance) {
             window.__unityInstance = instance;
             hideLoading();
-            // Re-assert layout after boot (some loaders rewrite canvas style).
             canvas.style.position = 'absolute';
             canvas.style.left = '0';
             canvas.style.top = '0';
             canvas.style.width = '100%';
             canvas.style.height = '100%';
             canvas.style.touchAction = 'none';
-            // Nudge engine to resync buffer to CSS box (mobile buffer stuck at 1280x720
-            // while CSS is ~390x664 → display stretches but UI raycasts miss).
             try {
               window.dispatchEvent(new Event('resize'));
               if (instance.Module && typeof instance.Module.setCanvasSize === 'function') {
