@@ -2,7 +2,7 @@
   "environment": "preprod",
   "releaseId": "aa20136-preprod-20260911",
   "distBranch": "preprod",
-  "sourceDistCommit": "f3e8820f6ef6d2359905bc58ff3d7eeb6a1a0edd",
+  "sourceDistCommit": "ba305a983e33fbfdbc77bc886594a589ae0245f6",
   "addressablesProfile": "Preprod",
   "addressablesBaseUrl": "https://metaverse.metafair.passdao.org/Addressables/WebGL",
   "addressablesBuildLayout": "addressables-buildlayout.json",
