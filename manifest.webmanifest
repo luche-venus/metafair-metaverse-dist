@@ -1,0 +1,15 @@
+{
+    "name": "jj_demo",
+    "short_name": "jj_demo",
+    "start_url": "index.html",
+    "display": "fullscreen",
+    "background_color": "#FAFAFA",
+    "theme_color": "#fff",
+    "description": "MetafairWebGL",
+    "icons": [{
+      "src": "TemplateData/icons/unity-logo-light.png",
+      "sizes": "144x144",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }]
+  }

@@ -1,5 +1,6 @@
 {
   "abBaseUrl": "https://metaverse.metafair.passdao.org/AssetBundles",
+  "addressablesBaseUrl": "https://metaverse.metafair.passdao.org/Addressables/WebGL",
   "environment": "preprod",
-  "debug": true
+  "releaseId": "aa20136-preprod-20260911"
 }

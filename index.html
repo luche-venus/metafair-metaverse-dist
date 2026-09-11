@@ -3,530 +3,111 @@
   <head>
     <meta charset="utf-8">
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
-    <meta name="viewport" content="width=device-width, height=device-height, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, shrink-to-fit=yes, viewport-fit=cover">
-    <title>METAFAIR</title>
-
+    <title>Unity WebGL Player | jj_demo</title>
+    <link rel="shortcut icon" href="TemplateData/favicon.ico">
+    <link rel="stylesheet" href="TemplateData/style.css?v=aa20136-preprod-20260911">
+    <link rel="manifest" href="manifest.webmanifest">
+  
     <!-- MICROPHONE PRO START -->
     <script src='./microphone.js'></script>
     <!-- MICROPHONE PRO END -->
-
-    <!--
-      Host bridge + optional in-WebGL debug HUD (Dist JS only — no Unity C# rebuild).
-
-      Enable HUD (any of):
-        ?unityDebug=1 | ?touchDebug=1 | ?metaverseDebug=1
-        localStorage metafair_unity_debug=1
-        config.json { "debug": true }
-
-      Preprod:
-        https://metaverse.metafair.passdao.org/?unityDebug=1
-        https://metafair.passdao.org/metafair-art?unityDebug=1  (reads parent query when same-site readable)
-    -->
-    <script>
-      (function () {
-        var params = new URLSearchParams(location.search || '');
-        var parentParams = null;
-        try {
-          if (window.parent && window.parent !== window) {
-            parentParams = new URLSearchParams(window.parent.location.search || '');
-          }
-        } catch (_) {
-          parentParams = null;
-        }
-        function flag(name) {
-          var v = params.get(name);
-          if (v === '1' || v === 'true') return true;
-          if (parentParams) {
-            v = parentParams.get(name);
-            if (v === '1' || v === 'true') return true;
-          }
-          return false;
-        }
-        var debug =
-          flag('unityDebug') ||
-          flag('touchDebug') ||
-          flag('unityTouchDebug') ||
-          flag('metaverseDebug') ||
-          (function () {
-            try {
-              return (
-                localStorage.getItem('metafair_unity_debug') === '1' ||
-                localStorage.getItem('metafair_unity_touch_debug') === '1'
-              );
-            } catch (e) {
-              return false;
-            }
-          })();
-
-        // Keep in sync with frontend DEFAULT_UNITY_ARTWORK_ID_MAP (mesh-truth).
-        var GO_TO_PORTAL = {
-          8: 2, 9: 3, 10: 4, 11: 5, 12: 6, 13: 7, 14: 8, 15: 9, 16: 10, 17: 11,
-          24: 28, 25: 29, 26: 30, 27: 31, 42: 12,
-          28: 18,
-          29: 13, 30: 14, 31: 15, 32: 16, 33: 17,
-          37: 24, 38: 25, 39: 26, 41: 27,
-        };
-        var GO_HALL = {
-          1: 'Phoenix', 2: 'Phoenix', 3: 'Phoenix', 4: 'Phoenix', 5: 'Phoenix', 6: 'Phoenix', 7: 'Phoenix',
-          8: 'Berko', 9: 'Berko', 10: 'Berko', 11: 'Berko', 12: 'Berko', 13: 'Berko', 14: 'Berko',
-          15: 'Berko', 16: 'Berko', 17: 'Berko', 18: 'Berko',
-          19: 'Dulon', 20: 'Dulon', 21: 'Dulon', 22: 'Dulon', 23: 'Dulon',
-          24: 'Mermoz', 25: 'Mermoz', 26: 'Mermoz', 27: 'Mermoz', 42: 'Mermoz',
-          28: 'Gisele',
-          29: 'Bernard', 30: 'Bernard', 31: 'Bernard', 32: 'Bernard', 33: 'Bernard',
-          34: 'IanaK', 35: 'IanaK', 36: 'IanaK', 43: 'IanaK', 44: 'IanaK', 45: 'IanaK',
-          37: 'Leage', 38: 'Leage', 39: 'Leage', 41: 'Leage',
-        };
-
-        window.__unityTouchDebug = debug;
-        window.__unityDebug = debug;
-        window.__unityDebugState = {
-          gallery: null,
-          lastSetScore: null,
-          lastPortal: null,
-          lastHall: null,
-          lastAt: null,
-          seq: 0,
-          log: [],
-        };
-
-        function recordUnityEvent(eventName, data, fromJslib) {
-          var st = window.__unityDebugState;
-          var now = new Date().toISOString();
-          if (eventName === 'CurrentGallery') {
-            st.gallery = String(data == null ? '' : data);
-          } else if (eventName === 'GalleryTime') {
-            st.galleryTime = String(data == null ? '' : data);
-          } else if (eventName === 'SetScore') {
-            var uid = Number(data);
-            var portal = GO_TO_PORTAL[uid] != null ? GO_TO_PORTAL[uid] : uid;
-            var hall = GO_HALL[uid] || '?';
-            st.seq += 1;
-            st.lastSetScore = uid;
-            st.lastPortal = portal;
-            st.lastHall = hall;
-            st.lastAt = now;
-            st.log.unshift({
-              seq: st.seq,
-              unityId: uid,
-              portalId: portal,
-              hall: hall,
-              gallery: st.gallery,
-              at: now,
-              via: fromJslib ? 'jslib' : 'bridge',
-            });
-            if (st.log.length > 12) st.log.length = 12;
-          }
-          try {
-            if (window.parent && window.parent !== window) {
-              window.parent.postMessage(
-                {
-                  type: 'UnityDebugProbe',
-                  eventName: eventName,
-                  data: data,
-                  state: {
-                    gallery: st.gallery,
-                    lastSetScore: st.lastSetScore,
-                    lastPortal: st.lastPortal,
-                    lastHall: st.lastHall,
-                    lastAt: st.lastAt,
-                    seq: st.seq,
-                  },
-                },
-                '*',
-              );
-            }
-          } catch (_) {}
-          if (debug) console.info('[unity-debug]', eventName, data, st);
-          if (window.__unityDebugRender) window.__unityDebugRender();
-        }
-
-        // Avoid double-count when jslib posts + calls dispatchReactUnityEvent.
-        var lastKey = '';
-        var lastKeyAt = 0;
-        function recordDeduped(eventName, data, via) {
-          var key = eventName + ':' + String(data);
-          var now = Date.now();
-          if (key === lastKey && now - lastKeyAt < 40) return;
-          lastKey = key;
-          lastKeyAt = now;
-          recordUnityEvent(eventName, data, via);
-        }
-
-        function postToParent(eventName, data) {
-          recordDeduped(eventName, data, false);
-          var msg = { type: 'UnityEvent', eventName: eventName, data: data };
-          try {
-            if (window.parent && window.parent !== window) {
-              window.parent.postMessage(msg, '*');
-            }
-          } catch (e) {
-            console.warn('[unity-host-bridge] postMessage failed', e);
-          }
-          console.info('[unity-host-bridge]', eventName, data);
-        }
-
-        // jslib calls this when present — primary capture path for SetScore.
-        window.dispatchReactUnityEvent = function (eventName, data) {
-          recordDeduped(eventName, data, true);
-        };
-
-        window.__unityBridge = {
-          setScore: function (id) {
-            postToParent('SetScore', Number(id));
-          },
-          navigate: function (path) {
-            postToParent('Navigate', String(path || ''));
-          },
-        };
-        if (typeof window.SetScore !== 'function') {
-          window.SetScore = function (score) {
-            postToParent('SetScore', score);
-          };
-        }
-        if (typeof window.Navigate !== 'function') {
-          window.Navigate = function (path) {
-            postToParent('Navigate', path);
-          };
-        }
-
-        window.__unityTouchProbe = {
-          counts: { touchstart: 0, touchend: 0, pointerdown: 0, pointerup: 0, mousedown: 0, click: 0 },
-          last: null,
-          canvas: null,
-        };
-        function reportTouch(type, e) {
-          var t = (e.touches && e.touches[0]) || (e.changedTouches && e.changedTouches[0]) || e;
-          var payload = {
-            type: type,
-            x: typeof t.clientX === 'number' ? t.clientX : null,
-            y: typeof t.clientY === 'number' ? t.clientY : null,
-            pointerType: e.pointerType || null,
-          };
-          window.__unityTouchProbe.counts[type] = (window.__unityTouchProbe.counts[type] || 0) + 1;
-          window.__unityTouchProbe.last = payload;
-        }
-        window.__installUnityTouchProbe = function (canvas) {
-          window.__unityTouchProbe.canvas = canvas;
-          ['touchstart', 'touchend', 'pointerdown', 'pointerup', 'mousedown', 'click'].forEach(function (type) {
-            canvas.addEventListener(
-              type,
-              function (e) {
-                reportTouch(type, e);
-              },
-              true,
-            );
-          });
-        };
-
-        function mountHud() {
-          if (document.getElementById('unity-score-debug-hud')) return;
-          var hud = document.createElement('div');
-          hud.id = 'unity-score-debug-hud';
-          hud.setAttribute(
-            'style',
-            [
-              'position:absolute',
-              'left:8px',
-              'top:8px',
-              'z-index:50',
-              'max-width:min(96vw,22rem)',
-              'padding:8px 10px',
-              'border-radius:8px',
-              'background:rgba(0,0,0,0.82)',
-              'color:#f5f5f5',
-              'font:11px/1.35 ui-monospace,SFMono-Regular,Menlo,monospace',
-              'pointer-events:none',
-              'white-space:pre-wrap',
-              'box-shadow:0 8px 24px rgba(0,0,0,.35)',
-            ].join(';'),
-          );
-          document.body.appendChild(hud);
-          window.__unityDebugRender = function () {
-            var st = window.__unityDebugState;
-            var lines = [
-              'WebGL debug (Dist JS)',
-              'gallery: ' + (st.gallery || '(none yet)'),
-              'last SetScore U' +
-                st.lastSetScore +
-                ' → expect P' +
-                st.lastPortal +
-                ' [' +
-                (st.lastHall || '?') +
-                ']',
-              'at: ' + (st.lastAt || '—') + '  seq:' + st.seq,
-            ];
-            if (
-              st.gallery &&
-              st.lastHall &&
-              String(st.gallery).toLowerCase().indexOf('mermoz') >= 0 &&
-              st.lastHall !== 'Mermoz'
-            ) {
-              lines.push('WARN: gallery=Mermoz but GO hall=' + st.lastHall);
-              lines.push('  → raycast hit other hall, or wrong collider name');
-            }
-            if (st.lastSetScore === 25) lines.push('Tlaloc: U25→P29 /marketplace/29');
-            if (st.lastSetScore === 29) lines.push('Bernard Pyxis: U29→P13 /marketplace/13');
-            if (st.log.length) {
-              lines.push('— recent SetScore —');
-              st.log.slice(0, 6).forEach(function (e) {
-                lines.push(
-                  '#' +
-                    e.seq +
-                    ' U' +
-                    e.unityId +
-                    '→P' +
-                    e.portalId +
-                    ' ' +
-                    e.hall +
-                    (e.gallery ? ' @' + e.gallery : ''),
-                );
-              });
-            } else {
-              lines.push('(click a TheArt piece)');
-            }
-            hud.textContent = lines.join('\n');
-          };
-          window.__unityDebugRender();
-        }
-
-        if (debug) {
-          if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', mountHud);
-          } else {
-            mountHud();
-          }
-        }
-
-        fetch('config.json', { cache: 'no-store' })
-          .then(function (r) {
-            return r.ok ? r.json() : null;
-          })
-          .then(function (cfg) {
-            if (cfg && cfg.debug === true) {
-              window.__unityDebug = true;
-              window.__unityTouchDebug = true;
-              mountHud();
-            }
-          })
-          .catch(function () {});
-      })();
-    </script>
-
-    <style>
-      html, body {
-        margin: 0;
-        padding: 0;
-        border: 0;
-        background: #FAFAFA;
-        width: 100%;
-        height: 100%;
-        overflow: hidden;
-        touch-action: none;
-        overscroll-behavior: none;
-        -webkit-user-select: none;
-        user-select: none;
-        position: relative;
-      }
-      #unity-canvas {
-        background: #FAFAFA;
-        display: block;
-        position: absolute;
-        left: 0;
-        top: 0;
-        width: 100%;
-        height: 100%;
-        touch-action: none;
-        -webkit-tap-highlight-color: transparent;
-        outline: none;
-      }
-      #unity-loading {
-        position: absolute;
-        inset: 0;
-        z-index: 10;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        gap: 20px;
-        background: #FAFAFA;
-        transition: opacity 0.6s ease;
-      }
-      #unity-loading.hidden {
-        opacity: 0;
-        pointer-events: none;
-      }
-      #unity-loading .spinner {
-        position: relative;
-        width: 40px;
-        height: 40px;
-      }
-      #unity-loading .spinner span {
-        position: absolute;
-        inset: 0;
-        border-radius: 9999px;
-        border: 2px solid #E5E5E5;
-      }
-      #unity-loading .spinner span:last-child {
-        border: 2px solid transparent;
-        border-top-color: #3C3C3C;
-        animation: unity-spin 0.9s linear infinite;
-      }
-      @keyframes unity-spin {
-        to { transform: rotate(360deg); }
-      }
-      #unity-loading .label {
-        font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-        font-size: 11px;
-        letter-spacing: 0.2em;
-        text-transform: uppercase;
-        color: rgba(60, 60, 60, 0.5);
-      }
-    </style>
-  </head>
+</head>
   <body>
-    <canvas id="unity-canvas" width="1280" height="720" tabindex="0"></canvas>
-
-    <div id="unity-loading">
-      <div class="spinner"><span></span><span></span></div>
-      <div class="label">Loading experience</div>
+    <div id="unity-container">
+      <canvas id="unity-canvas" width=1280 height=720 tabindex="-1"></canvas>
+      <div id="unity-loading-bar">
+        <div id="unity-progress-bar-empty" aria-hidden="true">
+          <div id="unity-progress-bar-full"></div>
+        </div>
+      </div>
+      <div id="unity-warning"> </div>
     </div>
-
-    <script src="Build/Dist.loader.js"></script>
     <script>
-      (function () {
-        var canvas = document.querySelector('#unity-canvas');
-        var isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-
-        if (typeof window.__installUnityTouchProbe === 'function') {
-          window.__installUnityTouchProbe(canvas);
+      window.addEventListener("load", function () {
+        if ("serviceWorker" in navigator) {
+          navigator.serviceWorker.register("ServiceWorker.js?v=aa20136-preprod-20260911");
         }
+      });
 
-        var focusCanvas = function () {
-          try {
-            canvas.focus({ preventScroll: true });
-          } catch (e) {
-            try {
-              canvas.focus();
-            } catch (_) {}
-          }
-        };
-        canvas.addEventListener('touchstart', focusCanvas, { passive: true, capture: true });
-        canvas.addEventListener('pointerdown', focusCanvas, { passive: true, capture: true });
+      var container = document.querySelector("#unity-container");
+      var canvas = document.querySelector("#unity-canvas");
+      var loadingBar = document.querySelector("#unity-loading-bar");
+      var progressBarFull = document.querySelector("#unity-progress-bar-full");
+      var warningBanner = document.querySelector("#unity-warning");
 
-        canvas.addEventListener(
-          'touchmove',
-          function (e) {
-            if (e.cancelable) e.preventDefault();
-          },
-          { passive: false, capture: true },
-        );
-
-        (function bridgeTouchToMouse(el) {
-          var tracking = false;
-          function fire(type, touch, buttons) {
-            el.dispatchEvent(
-              new MouseEvent(type, {
-                bubbles: true,
-                cancelable: true,
-                view: window,
-                clientX: touch.clientX,
-                clientY: touch.clientY,
-                screenX: touch.screenX,
-                screenY: touch.screenY,
-                button: 0,
-                buttons: buttons,
-                detail: type === 'click' ? 1 : 0,
-              }),
-            );
-          }
-          el.addEventListener(
-            'touchstart',
-            function (e) {
-              if (e.touches.length !== 1) return;
-              tracking = true;
-              fire('mousedown', e.touches[0], 1);
-            },
-            { passive: true },
-          );
-          el.addEventListener(
-            'touchmove',
-            function (e) {
-              if (!tracking || !e.touches[0]) return;
-              fire('mousemove', e.touches[0], 1);
-            },
-            { passive: true },
-          );
-          el.addEventListener(
-            'touchend',
-            function (e) {
-              if (!tracking) return;
-              tracking = false;
-              var t = e.changedTouches[0];
-              if (!t) return;
-              fire('mouseup', t, 0);
-              fire('click', t, 0);
-            },
-            { passive: true },
-          );
-          el.addEventListener(
-            'touchcancel',
-            function () {
-              tracking = false;
-            },
-            { passive: true },
-          );
-        })(canvas);
-
-        var loadingOverlay = document.getElementById('unity-loading');
-        var hideLoading = function () {
-          if (!loadingOverlay) return;
-          loadingOverlay.classList.add('hidden');
-          loadingOverlay.style.pointerEvents = 'none';
-          setTimeout(function () {
-            if (loadingOverlay && loadingOverlay.parentNode) loadingOverlay.parentNode.removeChild(loadingOverlay);
-            loadingOverlay = null;
-          }, 700);
-          focusCanvas();
-        };
-
-        var config = {
-          dataUrl: 'Build/Dist.data.unityweb',
-          frameworkUrl: 'Build/Dist.framework.js.unityweb',
-          codeUrl: 'Build/Dist.wasm.unityweb',
-          streamingAssetsUrl: 'StreamingAssets',
-          companyName: 'DefaultCompany',
-          productName: 'jj_demo',
-          productVersion: '0.1.0',
-          matchWebGLToCanvasSize: true,
-        };
-        if (isMobile || (navigator.maxTouchPoints && navigator.maxTouchPoints > 0 && window.innerWidth < 900)) {
-          config.devicePixelRatio = 1;
+      // Shows a temporary message banner/ribbon for a few seconds, or
+      // a permanent error message on top of the canvas if type=='error'.
+      // If type=='warning', a yellow highlight color is used.
+      // Modify or remove this function to customize the visually presented
+      // way that non-critical warnings and error messages are presented to the
+      // user.
+      function unityShowBanner(msg, type) {
+        function updateBannerVisibility() {
+          warningBanner.style.display = warningBanner.children.length ? 'block' : 'none';
         }
+        var div = document.createElement('div');
+        div.innerHTML = msg;
+        warningBanner.appendChild(div);
+        if (type == 'error') div.style = 'background: red; padding: 10px;';
+        else {
+          if (type == 'warning') div.style = 'background: yellow; padding: 10px;';
+          setTimeout(function() {
+            warningBanner.removeChild(div);
+            updateBannerVisibility();
+          }, 5000);
+        }
+        updateBannerVisibility();
+      }
 
-        createUnityInstance(canvas, config)
-          .then(function (instance) {
-            window.__unityInstance = instance;
-            hideLoading();
-            canvas.style.position = 'absolute';
-            canvas.style.left = '0';
-            canvas.style.top = '0';
-            canvas.style.width = '100%';
-            canvas.style.height = '100%';
-            canvas.style.touchAction = 'none';
-            try {
-              window.dispatchEvent(new Event('resize'));
-              if (instance.Module && typeof instance.Module.setCanvasSize === 'function') {
-                instance.Module.setCanvasSize(canvas.clientWidth, canvas.clientHeight, true);
-              }
-            } catch (_) {}
-            focusCanvas();
-          })
-          .catch(function (err) {
-            console.error('[unity] createUnityInstance failed', err);
-            hideLoading();
-          });
-      })();
+      var buildUrl = "Build";
+      var loaderUrl = buildUrl + "/fair.loader.js?v=aa20136-preprod-20260911";
+      var config = {
+        dataUrl: buildUrl + "/fair.data.br?v=aa20136-preprod-20260911",
+        frameworkUrl: buildUrl + "/fair.framework.js.br?v=aa20136-preprod-20260911",
+        codeUrl: buildUrl + "/fair.wasm.br?v=aa20136-preprod-20260911",
+        streamingAssetsUrl: "StreamingAssets",
+        companyName: "DefaultCompany",
+        productName: "jj_demo",
+        productVersion: "0.1.0",
+        showBanner: unityShowBanner,
+      };
+
+      // By default Unity keeps WebGL canvas render target size matched with
+      // the DOM size of the canvas element (scaled by window.devicePixelRatio)
+      // Set this to false if you want to decouple this synchronization from
+      // happening inside the engine, and you would instead like to size up
+      // the canvas DOM size and WebGL render target sizes yourself.
+      // config.matchWebGLToCanvasSize = false;
+
+      if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
+        // Mobile device style: fill the whole browser client area with the game canvas:
+        var meta = document.createElement('meta');
+        meta.name = 'viewport';
+        meta.content = 'width=device-width, height=device-height, initial-scale=1.0, user-scalable=no, shrink-to-fit=yes';
+        document.getElementsByTagName('head')[0].appendChild(meta);
+      }
+
+      loadingBar.style.display = "block";
+
+
+      var script = document.createElement("script");
+      script.src = loaderUrl;
+      script.onload = () => {
+        createUnityInstance(canvas, config, (progress) => {
+          progressBarFull.style.width = 100 * progress + "%";
+          // Unity can render the first frame before the initialization promise
+          // settles. Hide the guide as soon as all WebGL payloads are loaded;
+          // the promise callback below remains a second safety net.
+          if (progress >= 1) loadingBar.style.display = "none";
+        }).then((unityInstance) => {
+          loadingBar.style.display = "none";
+        }).catch((message) => {
+          loadingBar.style.display = "none";
+          alert(message);
+        });
+      };
+      document.body.appendChild(script);
+
     </script>
   </body>
 </html>
