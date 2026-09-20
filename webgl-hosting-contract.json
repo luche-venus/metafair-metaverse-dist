@@ -1,0 +1,9 @@
+{
+  "compression": "brotli",
+  "artifacts": {
+    "data": {"path": "Build/fair.data.br", "contentEncoding": "br", "contentType": "application/octet-stream"},
+    "framework": {"path": "Build/fair.framework.js.br", "contentEncoding": "br", "contentType": "text/javascript"},
+    "loader": {"path": "Build/fair.loader.js", "contentEncoding": null, "contentType": "text/javascript"},
+    "wasm": {"path": "Build/fair.wasm.br", "contentEncoding": "br", "contentType": "application/wasm"}
+  }
+}

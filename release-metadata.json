@@ -1,0 +1,17 @@
+{
+    "environment": "production",
+    "releaseId": "20260920090125",
+    "profile": "Production",
+    "remoteLoadPath": "https://metafair.5000years.io/Addressables/[BuildTarget]",
+    "contentStatePath": "addressables_content_state.bin",
+    "contentStateSha256": "9ae02e9e759c0c7d060b05cb4f1001e885fa1e07843f290d46e27be73c865dba",
+    "buildLayout": "addressables-buildlayout.json",
+    "buildLayoutSha256": "43b5581536e67245ea1f5dc169464bbe7cec801b0438f43ab0b3684220b2da43",
+    "bundleCount": 162,
+    "bundleBytes": 176779431,
+    "unityVersion": "6000.6.0f1",
+    "addressablesVersion": "2.11.2",
+    "sourceCommit": "95673a8c3469fc67ee6525332e14a631f47e4a9d",
+    "sourceDirty": "false",
+    "generatedAtUtc": "2026-09-20T09:02:28.1233450Z"
+}

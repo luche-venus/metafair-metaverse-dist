@@ -1,5 +1,5 @@
 {
-  "abBaseUrl": "https://metaverse.metafair.passdao.org/AssetBundles",
-  "environment": "preprod",
-  "debug": true
+  "addressablesBaseUrl": "https://metafair.5000years.io/Addressables/WebGL",
+  "environment": "production",
+  "releaseId": "20260920090125"
 }
