@@ -5,7 +5,7 @@
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
     <title>METAFAIR</title>
     <link rel="shortcut icon" href="TemplateData/favicon.ico">
-    <link rel="stylesheet" href="TemplateData/style.css?v=20260915145036">
+    <link rel="stylesheet" href="TemplateData/style.css?v=20260922-0748-shaderfix">
     <link rel="manifest" href="manifest.webmanifest">
   
     <!-- MICROPHONE PRO START -->
@@ -25,7 +25,7 @@
     <script>
       window.addEventListener("load", function () {
         if ("serviceWorker" in navigator) {
-          navigator.serviceWorker.register("ServiceWorker.js?v=20260915145036");
+          navigator.serviceWorker.register("ServiceWorker.js?v=20260922-0748-shaderfix");
         }
       });
 
@@ -34,6 +34,17 @@
       var loadingBar = document.querySelector("#unity-loading-bar");
       var progressBarFull = document.querySelector("#unity-progress-bar-full");
       var warningBanner = document.querySelector("#unity-warning");
+
+      // The host page gates mouse-wheel ownership so users can either scroll the
+      // page or zoom inside Unity. Escape releases the iframe back to page mode.
+      function releaseHostInteraction() {
+        if (window.parent && window.parent !== window) {
+          window.parent.postMessage({ type: 'UnityEvent', eventName: 'ReleaseInteraction', data: true }, '*');
+        }
+      }
+      window.addEventListener("keydown", function (event) {
+        if (event.key === "Escape") releaseHostInteraction();
+      }, true);
 
       // Shows a temporary message banner/ribbon for a few seconds, or
       // a permanent error message on top of the canvas if type=='error'.
@@ -60,11 +71,11 @@
       }
 
       var buildUrl = "Build";
-      var loaderUrl = buildUrl + "/fair.loader.js?v=20260915145036";
+      var loaderUrl = buildUrl + "/fair.loader.js?v=20260922-0748-shaderfix";
       var config = {
-        dataUrl: buildUrl + "/fair.data.br?v=20260915145036",
-        frameworkUrl: buildUrl + "/fair.framework.js.br?v=20260915145036",
-        codeUrl: buildUrl + "/fair.wasm.br?v=20260915145036",
+        dataUrl: buildUrl + "/fair.data.br?v=20260922-0748-shaderfix",
+        frameworkUrl: buildUrl + "/fair.framework.js.br?v=20260922-0748-shaderfix",
+        codeUrl: buildUrl + "/fair.wasm.br?v=20260922-0748-shaderfix",
         streamingAssetsUrl: "StreamingAssets",
         companyName: "DefaultCompany",
         productName: "METAFAIR",

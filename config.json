@@ -2,5 +2,5 @@
   "abBaseUrl": "https://metaverse.metafair.passdao.org/AssetBundles",
   "addressablesBaseUrl": "https://metaverse.metafair.passdao.org/Addressables/WebGL",
   "environment": "preprod",
-  "releaseId": "20260915145036"
+  "releaseId": "20260922-0748-shaderfix"
 }
