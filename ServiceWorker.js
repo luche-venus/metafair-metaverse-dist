@@ -1,5 +1,5 @@
-const releaseId = "20260922-0748-shaderfix";
-const cacheName = "DefaultCompany-METAFAIR-0.1.0-20260922-0748-shaderfix";
+const releaseId = "20260922072138";
+const cacheName = "DefaultCompany-METAFAIR-0.1.0-20260922072138";
 const contentToCache = [
   "Build/fair.loader.js",
   "Build/fair.framework.js.br",
