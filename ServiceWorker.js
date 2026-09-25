@@ -1,5 +1,5 @@
-const releaseId = "20260925082117";
-const cacheName = "DefaultCompany-METAFAIR-0.1.0-20260925082117";
+const releaseId = "20260925104445";
+const cacheName = "DefaultCompany-METAFAIR-0.1.0-20260925104445";
 const contentToCache = [
   "Build/fair.loader.js",
   "Build/fair.framework.js.br",
