@@ -1,11 +1,11 @@
 {
   "environment": "production",
-  "releaseId": "20260925063006",
-  "sourceCommit": "3b369fbf5f74f76b82f561a6142756a5e2709300",
+  "releaseId": "20260925082117",
+  "sourceCommit": "1b792e8e2c82bf59dea9feb125935b2084f760ec",
   "sourceDirty": false,
   "sourceAssetIntegrityVerified": true,
   "addressablesBaseUrl": "https://metafair.5000years.io/Addressables/WebGL",
   "catalogHash": "catalog_0.1.0.hash",
   "bundleCount": 181,
-  "bundleBytes": 308090665
+  "bundleBytes": 308090560
 }
