@@ -1,10 +1,7 @@
-const releaseId = "20260925104445";
-const cacheName = "DefaultCompany-METAFAIR-0.1.0-20260925104445";
+const releaseId = "20261008044250";
+const cacheName = "DefaultCompany-METAFAIR-0.1.0-20261008044250";
 const contentToCache = [
   "Build/fair.loader.js",
-  "Build/fair.framework.js.br",
-  "Build/fair.data.br",
-  "Build/fair.wasm.br",
   "TemplateData/style.css"
 ];
 
@@ -28,11 +25,17 @@ self.addEventListener('fetch', (event) => {
     const isDynamic = event.request.mode === 'navigate' ||
       /(?:^|\/)(?:config\.json|ServiceWorker\.js)$/.test(url.pathname) ||
       /(?:Addressables|AssetBundles)\//.test(url.pathname);
+    const isUnityCorePayload = /\/Build\/[^/]+\.(?:data|wasm|framework\.js)(?:\.br|\.unityweb)?$/.test(url.pathname);
 
     if (isDynamic) {
       // Always ask the server for the current shell/config/catalog/bundle.
       // These requests must not be hidden by a previous release's cache.
       return fetch(event.request, { cache: 'no-store' });
+    }
+    if (isUnityCorePayload) {
+      // Immutable HTTP caching already covers these release-versioned files.
+      // Avoid a second Cache Storage copy during first load.
+      return fetch(event.request);
     }
 
     const cached = await caches.match(event.request);

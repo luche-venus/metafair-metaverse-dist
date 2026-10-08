@@ -5,7 +5,7 @@
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
     <title>METAFAIR</title>
     <link rel="shortcut icon" href="TemplateData/favicon.ico">
-    <link rel="stylesheet" href="TemplateData/style.css?v=20260925104445">
+    <link rel="stylesheet" href="TemplateData/style.css?v=20261008044250">
     <link rel="manifest" href="manifest.webmanifest">
   
     <!-- MICROPHONE PRO START -->
@@ -25,7 +25,7 @@
     <script>
       window.addEventListener("load", function () {
         if ("serviceWorker" in navigator) {
-          navigator.serviceWorker.register("ServiceWorker.js?v=20260925104445");
+          navigator.serviceWorker.register("ServiceWorker.js?v=20261008044250");
         }
       });
 
@@ -70,12 +70,65 @@
         updateBannerVisibility();
       }
 
+      var userAgent = navigator.userAgent || '';
+      var isIPadDesktopUA = navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1;
+      var isAppleMobile = /iPhone|iPad|iPod/i.test(userAgent) || isIPadDesktopUA;
+      var isMobile = isAppleMobile || /Android/i.test(userAgent);
+      var isDesktopSafari = /Safari/i.test(userAgent) && !/(Chrome|Chromium|CriOS|FxiOS|EdgiOS|OPiOS|Android)/i.test(userAgent);
+      var isEmbedded = window.parent && window.parent !== window;
+      var disableUnityIndexedDbCache = isEmbedded && (isAppleMobile || isDesktopSafari);
+      var diagnosticParams = new URLSearchParams(window.location.search);
+      var remoteDiagnosticReporting = diagnosticParams.get("diagReport") === "1";
+
+      function reportBrowserDiagnostic(eventName, detail) {
+        if (!remoteDiagnosticReporting) return;
+        try {
+          fetch("/__metafair_diag", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              kind: "browser",
+              session: diagnosticParams.get("diagSession") || "",
+              clientTimeMs: performance.now(),
+              userAgent: navigator.userAgent || "",
+              url: window.location.href,
+              event: eventName,
+              detail: detail || null,
+              visibilityState: document.visibilityState
+            }),
+            keepalive: true
+          }).catch(function() {});
+        } catch (e) {}
+      }
+
+      if (remoteDiagnosticReporting) {
+        window.addEventListener("error", function(event) {
+          reportBrowserDiagnostic("error", {
+            message: event.message || "",
+            filename: event.filename || "",
+            line: event.lineno || 0,
+            column: event.colno || 0
+          });
+        });
+        window.addEventListener("unhandledrejection", function(event) {
+          reportBrowserDiagnostic("unhandledrejection", {
+            reason: String(event.reason || "")
+          });
+        });
+        window.addEventListener("pagehide", function() {
+          reportBrowserDiagnostic("pagehide");
+        });
+        document.addEventListener("visibilitychange", function() {
+          reportBrowserDiagnostic("visibilitychange");
+        });
+      }
+
       var buildUrl = "Build";
-      var loaderUrl = buildUrl + "/fair.loader.js?v=20260925104445";
+      var loaderUrl = buildUrl + "/fair.loader.js?v=20261008044250";
       var config = {
-        dataUrl: buildUrl + "/fair.data.br?v=20260925104445",
-        frameworkUrl: buildUrl + "/fair.framework.js.br?v=20260925104445",
-        codeUrl: buildUrl + "/fair.wasm.br?v=20260925104445",
+        dataUrl: buildUrl + "/fair.data.br?v=20261008044250",
+        frameworkUrl: buildUrl + "/fair.framework.js.br?v=20261008044250",
+        codeUrl: buildUrl + "/fair.wasm.br?v=20261008044250",
         streamingAssetsUrl: "StreamingAssets",
         companyName: "DefaultCompany",
         productName: "METAFAIR",
@@ -90,7 +143,37 @@
       // the canvas DOM size and WebGL render target sizes yourself.
       // config.matchWebGLToCanvasSize = false;
 
-      if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
+      if (isMobile) {
+        // Artwork presentation is resolution-sensitive, so use the highest
+        // native density that stays inside the render-target envelope proven by
+        // the sustained mobile stress suite. DPR 3 passed both 390x844 and
+        // 430x932 (1290x2796 = 3,606,840 backing pixels), including an 18-hop
+        // multi-gallery session. Larger mobile viewports are reduced only enough
+        // to stay inside that tested total-pixel budget instead of applying one
+        // blunt DPR cap to every device.
+        var mobileMaxDpr = 3;
+        var mobileRenderPixelBudget = 3606840;
+        // Use screen CSS dimensions here instead of innerWidth/innerHeight.
+        // At this point the mobile viewport meta tag has not necessarily been
+        // applied yet; Safari/Chrome can still report the legacy ~980px layout
+        // viewport and would incorrectly force the DPR far below the safe limit.
+        var mobileScreenWidth = (window.screen && window.screen.width) || window.innerWidth;
+        var mobileScreenHeight = (window.screen && window.screen.height) || window.innerHeight;
+        var mobileCssPixels = Math.max(1, mobileScreenWidth * mobileScreenHeight);
+        var pixelBudgetDpr = Math.sqrt(mobileRenderPixelBudget / mobileCssPixels);
+        config.devicePixelRatio = Math.max(
+          1,
+          Math.min(window.devicePixelRatio || 1, mobileMaxDpr, pixelBudgetDpr));
+
+        // Profiling-only resolution A/B. This override is intentionally
+        // unavailable without metafairDiag and remains capped at DPR 3.
+        if (diagnosticParams.has("metafairDiag")) {
+          var diagnosticDprCap = Number(diagnosticParams.get("metafairDprCap"));
+          if (Number.isFinite(diagnosticDprCap) && diagnosticDprCap >= 1 && diagnosticDprCap <= 3) {
+            config.devicePixelRatio = Math.min(window.devicePixelRatio || 1, diagnosticDprCap);
+          }
+        }
+
         // Mobile device style: fill the whole browser client area with the game canvas:
         var meta = document.createElement('meta');
         meta.name = 'viewport';
@@ -99,6 +182,31 @@
       }
 
       loadingBar.style.display = "block";
+
+      // Optional low-level heap growth trace for repeatable mobile memory
+      // profiling. Disabled by default and only enabled explicitly through
+      // ?metafairDiag=growth so production behavior is unchanged.
+      if (new URLSearchParams(window.location.search).get("metafairDiag") === "growth") {
+        try {
+          const originalGrow = WebAssembly.Memory.prototype.grow;
+          WebAssembly.Memory.prototype.grow = function(deltaPages) {
+            const beforeBytes = this.buffer.byteLength;
+            const started = performance.now();
+            const result = originalGrow.call(this, deltaPages);
+            const afterBytes = this.buffer.byteLength;
+            console.log("[MetafairWebGrowth] " + JSON.stringify({
+              tMs: Number(performance.now().toFixed(3)),
+              durationMs: Number((performance.now() - started).toFixed(3)),
+              deltaPages,
+              beforeBytes,
+              afterBytes
+            }));
+            return result;
+          };
+        } catch (error) {
+          console.warn("[MetafairWebGrowth] unable to install trace", error);
+        }
+      }
 
 
       var script = document.createElement("script");
@@ -112,6 +220,12 @@
           if (progress >= 1) loadingBar.style.display = "none";
         }).then((unityInstance) => {
           loadingBar.style.display = "none";
+          // Expose the instance only in explicit profiling/diagnostic sessions.
+          // This lets the repeatable harness invoke the diagnostics-only Unity
+          // navigation bridge without changing normal production behavior.
+          if (diagnosticParams.has("metafairDiag")) {
+            window.metafairUnityInstance = unityInstance;
+          }
         }).catch((message) => {
           loadingBar.style.display = "none";
           alert(message);
