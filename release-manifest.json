@@ -1,7 +1,7 @@
 {
   "environment": "production",
-  "releaseId": "20261008044250",
-  "sourceCommit": "28ba7c6c6e95f5ca02a9f3e26ced4222d1c35943",
+  "releaseId": "20261008131031",
+  "sourceCommit": "b484bda7de252442f660055775732703fad0ff22",
   "sourceDirty": false,
   "sourceAssetIntegrityVerified": true,
   "addressablesBaseUrl": "https://metafair.5000years.io/Addressables/WebGL",

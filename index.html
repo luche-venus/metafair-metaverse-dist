@@ -5,7 +5,7 @@
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
     <title>METAFAIR</title>
     <link rel="shortcut icon" href="TemplateData/favicon.ico">
-    <link rel="stylesheet" href="TemplateData/style.css?v=20261008044250">
+    <link rel="stylesheet" href="TemplateData/style.css?v=20261008131031">
     <link rel="manifest" href="manifest.webmanifest">
   
     <!-- MICROPHONE PRO START -->
@@ -25,7 +25,7 @@
     <script>
       window.addEventListener("load", function () {
         if ("serviceWorker" in navigator) {
-          navigator.serviceWorker.register("ServiceWorker.js?v=20261008044250");
+          navigator.serviceWorker.register("ServiceWorker.js?v=20261008131031");
         }
       });
 
@@ -124,11 +124,11 @@
       }
 
       var buildUrl = "Build";
-      var loaderUrl = buildUrl + "/fair.loader.js?v=20261008044250";
+      var loaderUrl = buildUrl + "/fair.loader.js?v=20261008131031";
       var config = {
-        dataUrl: buildUrl + "/fair.data.br?v=20261008044250",
-        frameworkUrl: buildUrl + "/fair.framework.js.br?v=20261008044250",
-        codeUrl: buildUrl + "/fair.wasm.br?v=20261008044250",
+        dataUrl: buildUrl + "/fair.data.br?v=20261008131031",
+        frameworkUrl: buildUrl + "/fair.framework.js.br?v=20261008131031",
+        codeUrl: buildUrl + "/fair.wasm.br?v=20261008131031",
         streamingAssetsUrl: "StreamingAssets",
         companyName: "DefaultCompany",
         productName: "METAFAIR",
@@ -192,6 +192,9 @@
           WebAssembly.Memory.prototype.grow = function(deltaPages) {
             const beforeBytes = this.buffer.byteLength;
             const started = performance.now();
+            // Profiling-only native stack: distinguish one large allocator
+            // request from many render/scene allocations during boot.
+            const callsite = (new Error()).stack || "";
             const result = originalGrow.call(this, deltaPages);
             const afterBytes = this.buffer.byteLength;
             console.log("[MetafairWebGrowth] " + JSON.stringify({
@@ -199,7 +202,8 @@
               durationMs: Number((performance.now() - started).toFixed(3)),
               deltaPages,
               beforeBytes,
-              afterBytes
+              afterBytes,
+              callsite: callsite.slice(0, 800)
             }));
             return result;
           };
